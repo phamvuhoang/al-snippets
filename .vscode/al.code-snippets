@@ -19,7 +19,7 @@
 	"Create a Full Page Extension": {
 		"prefix": "alpefull",
 		"body": [
-			"pageextension ${1:code} '${2:Page Name}' extends '${3:Parent Page}'",
+			"pageextension ${1:code} '${2:Page Name}' extends '${3:Parent Page}';",
 			"{",
 			"    trigger OnOpenPage();",
 			"    begin",
@@ -27,7 +27,7 @@
 			"    end;",
 			"",
 			"    var",
-			"        // c: Record Customer;",
+			"        // Variables here",
 			"",
 			"    layout",
 			"    {",
@@ -35,6 +35,7 @@
 			"        {",
 			"            field(${5:Field Name}; ${6:Source})",
 			"            {",
+			"                // Field properties here",
 			"            }",
 			"        }",
 			"",
@@ -65,26 +66,20 @@
 			"    begin",
 			"        // Procedure code here",
 			"    end;",
-			"}",
-			""
+			"}"
 		],
 		"description": "Create a Page Extension with all possible parts"
 	},
-	
-
-
-
 	"Create a Page Extension With OnOpenPage trigger": {
 		"prefix": "alpe",
 		"body": [
-			"pageextension ${1:code} '${2:Page Name}' extends '${3:Parent Page}'"
-			"{"
-			"		trigger OnOpenPage();"
-			"		var"
-			"		// c: Record Customer;"
-			"		begin"
-			"		end;"
-			"}",
+			"pageextension ${1:code} '${2:Page Name}' extends '${3:Parent Page}';",
+			"{",
+			"    trigger OnOpenPage();",
+			"    begin",
+			"        // OnOpenPage code here",
+			"    end;",
+			"}"
 		],
 		"description": "Create a Page Extension with OnOpenPage trigger"
 	}
