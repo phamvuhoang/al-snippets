@@ -43,22 +43,53 @@ async function getPullRequestPatch(prUrl) {
 }
 
 // Function to send the PR patch data to Gemini for review
+// async function reviewPullRequest(patchData) {
+//   const apiKey = process.env.GEMINI_API_KEY;
+
+//   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`, {
+//     method: 'POST',
+//     headers: { 'Content-Type': 'application/json' },
+//     body: JSON.stringify({
+//       prompt: `Review this code:\n\n${patchData}`,
+//     }),
+//   });
+//   console.log("Gemini API Response status:", res.status);
+
+//   const result = await res.json();
+//   console.log("Gemini API Response:", result);
+//   return result.choices[0].text;  // Get the AI's review from the response
+// }
 async function reviewPullRequest(patchData) {
   const apiKey = process.env.GEMINI_API_KEY;
+
+  // Prepare the body of the request based on the expected format of the Gemini API.
+  const payload = {
+    "input": patchData // Change "prompt" to "input" or another field as expected by the Gemini API
+  };
 
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt: `Review this code:\n\n${patchData}`,
-    }),
+    body: JSON.stringify(payload),
   });
-  console.log("Gemini API Response status:", res.status);
 
   const result = await res.json();
+
+  // Log the result for debugging
   console.log("Gemini API Response:", result);
-  return result.choices[0].text;  // Get the AI's review from the response
+
+  // Check if the response contains the expected data
+  if (!result.choices || result.choices.length === 0) {
+    throw new Error("No choices returned from Gemini API.");
+  }
+
+  if (!result.choices[0].text) {
+    throw new Error("No text found in Gemini API response.");
+  }
+
+  return result.choices[0].text;  // Return the AI's review result
 }
+
 
 // Function to post review as a comment on the PR
 async function postReviewComment(prUrl, reviewResult) {
