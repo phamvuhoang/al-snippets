@@ -1,0 +1,31 @@
+# .github/workflows/auto_review.yml
+
+name: PR Auto Review
+
+on:
+  pull_request:
+    types: [opened, synchronize] # Trigger on PR open or update
+
+jobs:
+  review-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run Auto Review Script
+      run: |
+        # Run your custom review logic script
+        node review.js ${{ github.event.pull_request.html_url }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
