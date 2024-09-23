@@ -23,7 +23,7 @@ async function getPullRequestPatch(prUrl) {
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}`;
   const response = await fetch(apiUrl, {
     headers: {
-      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Authorization': `token ${process.env.PERSONAL_ACCESS_TOKEN}`,
       'Accept': 'application/vnd.github.v3.diff',
     },
   });
@@ -62,7 +62,7 @@ async function postReviewComment(prUrl, reviewResult) {
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Authorization': `token ${process.env.PERSONAL_ACCESS_TOKEN}`,
       'Accept': 'application/vnd.github.v3+json',
     },
     body: JSON.stringify({
