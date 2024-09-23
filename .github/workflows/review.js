@@ -53,8 +53,10 @@ async function reviewPullRequest(patchData) {
       prompt: `Review this code:\n\n${patchData}`,
     }),
   });
+  console.log("Gemini API Response status:", res.status);
 
   const result = await res.json();
+  console.log("Gemini API Response:", result);
   return result.choices[0].text;  // Get the AI's review from the response
 }
 
