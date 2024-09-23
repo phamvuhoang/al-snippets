@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd .github/workflows
-        run: npm install
+        npm install
 
     - name: Run Auto Review Script
       run: |
