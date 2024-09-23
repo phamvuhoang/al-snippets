@@ -1,0 +1,14 @@
+{
+  "name": "github-pr-review",
+  "version": "1.0.0",
+  "description": "Automated GitHub PR Review",
+  "main": "review.js",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "scripts": {
+    "review": "node review.js"
+  },
+  "author": "Your Name",
+  "license": "MIT"
+}
