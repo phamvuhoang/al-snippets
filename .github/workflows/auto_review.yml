@@ -3,9 +3,9 @@
 name: PR Auto Review
 
 on:
-  #pull_request:
-    #types: [opened, synchronize] # Trigger on PR open or update
-  workflow_dispatch: # Manual trigger from Action tab
+  pull_request:
+    types: [opened, synchronize] # Trigger on PR open or update
+  #workflow_dispatch: # Manual trigger from Action tab
 
 
 jobs:
