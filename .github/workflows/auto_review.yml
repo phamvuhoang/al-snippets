@@ -31,4 +31,5 @@ jobs:
         node review.js ${{ github.event.pull_request.html_url }}
       env:
         #GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
