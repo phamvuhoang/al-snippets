@@ -3,6 +3,7 @@ const { exec } = require('child_process');
 
 // GitHub PR URL passed as an argument
 const prUrl = process.argv[2];
+console.log("Pull Request URL:", prUrl);
 
 if (!prUrl) {
   console.error("No Pull Request URL provided.");
@@ -16,6 +17,7 @@ async function getPullRequestPatch(prUrl) {
     throw new Error('Invalid GitHub Pull Request URL');
   }
 
+  console.log("PR Owner:", match[1], "Repo:", match[2], "PR Number:", match[3]);
   const owner = match[1];
   const repo = match[2];
   const pullNumber = match[3];
@@ -28,11 +30,16 @@ async function getPullRequestPatch(prUrl) {
     },
   });
 
+  console.log("GitHub API Response Status:", response.status);
+
   if (!response.ok) {
     throw new Error(`Failed to fetch patch data: ${response.statusText}`);
   }
 
-  return await response.text();
+  const patchData = await response.text();
+  console.log("Patch Data:", patchData);
+  
+  return patchData;
 }
 
 // Function to send the PR patch data to Gemini for review
