@@ -59,37 +59,95 @@ async function getPullRequestPatch(prUrl) {
 //   console.log("Gemini API Response:", result);
 //   return result.choices[0].text;  // Get the AI's review from the response
 // }
+
+// Add the CODE_REVIEW_PROMPT constant at the top of your script
+const CODE_REVIEW_PROMPT = `You are a senior developer tasked with conducting an in-depth code review of a provided code patch. 
+Your review will methodically identify and categorize a range of issues including potential bugs, 
+performance bottlenecks, security vulnerabilities, adherence to coding standards, and best practices in software design.
+
+Focus Areas for Review:
+
+- Bugs: Identify logical or syntactical errors leading to incorrect program behavior or crashes.
+- Performance: Suggest improvements for more efficient resource utilization, such as optimizing memory usage and processing efficiency.
+- Security: Highlight potential vulnerabilities that could risk system security or data integrity.
+- Style/Coding Standards: Evaluate the code's adherence to established coding standards for readability and maintainability.
+- Best Practices in Software Design: Assess how well the code follows principles like SOLID, design patterns, 
+and other industry best practices for robust software development.
+- Test Coverage: Examine the test coverage with a focus on Statement and Branch coverage techniques. 
+Ensure that all significant code paths and decision branches are adequately tested for thorough validation of the code's functionality.
+
+Review Output Format:
+
+Provide your findings in a markdown format. Structure each identified issue as a separate section, using the following format:
+
+---
+**Category**: [Bugs | Performance | Security | Style/Coding Standards | Best Practices | Test Coverage]
+**Description:** Provide a detailed description of the issue.
+**Code Snippet:**
+  \`\`\`<language>
+  <Include the problematic code snippet from the patch, ensuring to escape any special characters.>
+  \`\`\`
+**Suggested Code:** 
+  \`\`\`<language>
+  <Code suggestion to fix the issue, if applicable. Leave empty if there is no specific code suggestion.>
+  \`\`\`
+---
+
+Additional Instructions:
+
+- Maintain clear separation and readability for each issue.
+- Place a strong emphasis on coding best practices and standards in your suggestions.
+- Offer constructive feedback aimed at enhancing code quality, focusing on clean, efficient, secure, 
+and maintainable coding techniques.
+- In the whitebox test coverage assessment, focus specifically on Statement and Branch coverage 
+to ensure comprehensive testing of all executable statements and decision points in the code.`;
+
+// Update the reviewPullRequest function
 async function reviewPullRequest(patchData) {
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // Prepare the body of the request based on the expected format of the Gemini API.
+  const model = "models/gemini-1.5-pro-latest";
+  const version = "v1beta";
+  const url = `https://generativelanguage.googleapis.com/${version}/${model}:generateContent?key=${apiKey}`;
+
+  const prompt = `${CODE_REVIEW_PROMPT}\n\n---${patchData}---`;
+
+  const contents = [{
+    parts: [{ text: prompt }],
+    role: "user"
+  }];
+
   const payload = {
-    "input": patchData // Change "prompt" to "input" or another field as expected by the Gemini API
+    contents
   };
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
-  const result = await res.json();
+  console.log("Gemini API Response status:", res.status);
 
-  // Log the result for debugging
+  const result = await res.json();
   console.log("Gemini API Response:", result);
 
-  // Check if the response contains the expected data
-  if (!result.choices || result.choices.length === 0) {
-    throw new Error("No choices returned from Gemini API.");
+  if (result.error) {
+    throw new Error(`Gemini API Error: ${result.error.message}`);
   }
 
-  if (!result.choices[0].text) {
-    throw new Error("No text found in Gemini API response.");
+  const candidates = result.candidates;
+  if (!candidates || !candidates.length || !candidates[0].content?.parts) {
+    throw new Error("Error: No valid response received from Gemini.");
   }
 
-  return result.choices[0].text;  // Return the AI's review result
+  const textResponse = candidates[0].content.parts.find(part => part.hasOwnProperty('text'));
+  if (!textResponse) {
+    throw new Error("Error: No text response found in Gemini output.");
+  }
+
+  return textResponse.text;
 }
-
 
 // Function to post review as a comment on the PR
 async function postReviewComment(prUrl, reviewResult) {
