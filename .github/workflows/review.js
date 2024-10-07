@@ -272,7 +272,9 @@ function parseReviewResult(reviewResult) {
 }
 
 async function postInlineComments(prUrl, reviewResult, commitId) {
+  console.log(`Review result: ${reviewResult}`);
   const issues = parseReviewResult(reviewResult);
+  console.log(`Number of issues: ${issues.length}`);
   for (const issue of issues) {
     const commentBody = `## Code Review Issue: ${issue.category} (${issue.severity})\n\n${issue.content}`;
     console.log(`Posting inline comment: ${commentBody}`);
