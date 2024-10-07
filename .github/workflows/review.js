@@ -195,6 +195,7 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.log(`Failed to post inline comment: ${response.statusText}\n${errorText}`)
     throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
   }
   console.log(`Inline comment posted successfully for ${filePath}:${line}`);
@@ -258,6 +259,7 @@ async function getLatestCommitId(prUrl) {
     const patchData = await getPullRequestPatch(prUrl);
     const reviewResult = await reviewPullRequest(patchData);
     const latestCommitId = await getLatestCommitId(prUrl);
+    console.log(`Last commit: ${latestCommitId}`);
     await postInlineComments(prUrl, reviewResult, latestCommitId);
     console.log('All inline review comments posted successfully.');
   } catch (error) {
