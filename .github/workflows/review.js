@@ -171,36 +171,84 @@ async function reviewPullRequest(patchData) {
 }
 
 
-async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
-  const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
-  const owner = match[1];
-  const repo = match[2];
-  const pullNumber = match[3];
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
+// async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
+//   const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+//   const owner = match[1];
+//   const repo = match[2];
+//   const pullNumber = match[3];
+//   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
   
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
-      'Accept': 'application/vnd.github.v3+json',
-    },
-    body: JSON.stringify({
-      body: commentBody,
-      commit_id: commitId,
-      path: filePath,
-      line: line,
-      side: 'RIGHT'  // Comment on the new version of the file
-    }),
-  });
+//   const response = await fetch(apiUrl, {
+//     method: 'POST',
+//     headers: {
+//       'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+//       'Accept': 'application/vnd.github.v3+json',
+//     },
+//     body: JSON.stringify({
+//       body: commentBody,
+//       commit_id: commitId,
+//       path: filePath,
+//       line: line,
+//       side: 'RIGHT'  // Comment on the new version of the file
+//     }),
+//   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.log(`Failed to post inline comment: ${response.statusText}\n${errorText}`)
-    throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     console.log(`Failed to post inline comment: ${response.statusText}\n${errorText}`)
+//     throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
+//   }
+//   console.log(`Inline comment posted successfully for ${filePath}:${line}`);
+// }
+async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
+  try {
+    const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+    if (!match) {
+      throw new Error(`Invalid PR URL: ${prUrl}`);
+    }
+    const [, owner, repo, pullNumber] = match;
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+      body: JSON.stringify({
+        body: commentBody,
+        commit_id: commitId,
+        path: filePath,
+        line: line,
+        side: 'RIGHT'  // Comment on the new version of the file
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`GitHub API Error (${response.status}): ${response.statusText}`);
+      console.error(`Error details: ${errorText}`);
+      console.error(`Request details:
+        URL: ${apiUrl}
+        Method: POST
+        Headers: ${JSON.stringify(response.headers)}
+        Body: ${JSON.stringify({
+          body: commentBody,
+          commit_id: commitId,
+          path: filePath,
+          line: line,
+          side: 'RIGHT'
+        }, null, 2)}`);
+      throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
+    }
+
+    console.log(`Inline comment posted successfully for ${filePath}:${line}`);
+  } catch (error) {
+    console.error(`Error in postInlineComment: ${error.message}`);
+    console.error(`Stack trace: ${error.stack}`);
+    throw error; // Re-throw the error for the calling function to handle
   }
-  console.log(`Inline comment posted successfully for ${filePath}:${line}`);
 }
-
 function parseReviewResult(reviewResult) {
   const issues = reviewResult.split('---').filter(issue => issue.trim() !== '');
   return issues
