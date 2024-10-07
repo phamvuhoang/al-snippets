@@ -170,12 +170,14 @@ async function reviewPullRequest(patchData) {
   return textResponse.text;
 }
 
-async function postReviewComment(prUrl, commentBody) {
+
+async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
   const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
   const owner = match[1];
   const repo = match[2];
   const pullNumber = match[3];
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${pullNumber}/comments`;
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
+  
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
@@ -184,12 +186,18 @@ async function postReviewComment(prUrl, commentBody) {
     },
     body: JSON.stringify({
       body: commentBody,
+      commit_id: commitId,
+      path: filePath,
+      line: line,
+      side: 'RIGHT'  // Comment on the new version of the file
     }),
   });
+
   if (!response.ok) {
-    throw new Error(`Failed to post review comment: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
   }
-  console.log('Review comment posted successfully.');
+  console.log(`Inline comment posted successfully for ${filePath}:${line}`);
 }
 
 function parseReviewResult(reviewResult) {
@@ -199,21 +207,49 @@ function parseReviewResult(reviewResult) {
       const lines = issue.trim().split('\n');
       const category = lines.find(line => line.startsWith('**Category**:'))?.split(':')[1]?.trim() || 'Unknown';
       const severity = lines.find(line => line.startsWith('**Severity**:'))?.split(':')[1]?.trim() || 'Unknown';
+      const codeSnippet = issue.match(/```[\s\S]*?```/)?.[0] || '';
+      const filePath = codeSnippet.match(/File: (.+)/)?.[1] || '';
+      const lineNumber = parseInt(codeSnippet.match(/Line: (\d+)/)?.[1] || '0', 10);
+      
       return {
         category,
         severity,
-        content: issue.trim()
+        content: issue.trim(),
+        filePath,
+        lineNumber
       };
     })
-    .filter(issue => issue.category !== 'Unknown' || issue.severity !== 'Unknown');
+    .filter(issue => (issue.category !== 'Unknown' || issue.severity !== 'Unknown') && issue.filePath && issue.lineNumber);
 }
 
-async function postSeparateComments(prUrl, reviewResult) {
+async function postInlineComments(prUrl, reviewResult, commitId) {
   const issues = parseReviewResult(reviewResult);
   for (const issue of issues) {
     const commentBody = `## Code Review Issue: ${issue.category} (${issue.severity})\n\n${issue.content}`;
-    await postReviewComment(prUrl, commentBody);
+    await postInlineComment(prUrl, commentBody, commitId, issue.filePath, issue.lineNumber);
   }
+}
+
+async function getLatestCommitId(prUrl) {
+  const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+  const owner = match[1];
+  const repo = match[2];
+  const pullNumber = match[3];
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/commits`;
+  
+  const response = await fetch(apiUrl, {
+    headers: {
+      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get commits: ${response.statusText}`);
+  }
+
+  const commits = await response.json();
+  return commits[commits.length - 1].sha;
 }
 
 // Main function to orchestrate the PR review
@@ -221,8 +257,9 @@ async function postSeparateComments(prUrl, reviewResult) {
   try {
     const patchData = await getPullRequestPatch(prUrl);
     const reviewResult = await reviewPullRequest(patchData);
-    await postSeparateComments(prUrl, reviewResult);
-    console.log('All review comments posted successfully.');
+    const latestCommitId = await getLatestCommitId(prUrl);
+    await postInlineComments(prUrl, reviewResult, latestCommitId);
+    console.log('All inline review comments posted successfully.');
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
