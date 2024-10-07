@@ -200,6 +200,55 @@ async function reviewPullRequest(patchData) {
 //   }
 //   console.log(`Inline comment posted successfully for ${filePath}:${line}`);
 // }
+// async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
+//   try {
+//     const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+//     if (!match) {
+//       throw new Error(`Invalid PR URL: ${prUrl}`);
+//     }
+//     const [, owner, repo, pullNumber] = match;
+//     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
+    
+//     const response = await fetch(apiUrl, {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+//         'Accept': 'application/vnd.github.v3+json',
+//       },
+//       body: JSON.stringify({
+//         body: commentBody,
+//         commit_id: commitId,
+//         path: filePath,
+//         line: line,
+//         side: 'RIGHT'  // Comment on the new version of the file
+//       }),
+//     });
+
+//     if (!response.ok) {
+//       const errorText = await response.text();
+//       console.error(`GitHub API Error (${response.status}): ${response.statusText}`);
+//       console.error(`Error details: ${errorText}`);
+//       console.error(`Request details:
+//         URL: ${apiUrl}
+//         Method: POST
+//         Headers: ${JSON.stringify(response.headers)}
+//         Body: ${JSON.stringify({
+//           body: commentBody,
+//           commit_id: commitId,
+//           path: filePath,
+//           line: line,
+//           side: 'RIGHT'
+//         }, null, 2)}`);
+//       throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
+//     }
+
+//     console.log(`Inline comment posted successfully for ${filePath}:${line}`);
+//   } catch (error) {
+//     console.error(`Error in postInlineComment: ${error.message}`);
+//     console.error(`Stack trace: ${error.stack}`);
+//     throw error; // Re-throw the error for the calling function to handle
+//   }
+// }
 async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
   try {
     const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
@@ -208,7 +257,25 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
     }
     const [, owner, repo, pullNumber] = match;
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
-    
+
+    // Validate required fields
+    if (!filePath) {
+      console.warn('File path is missing. Posting as a general PR comment instead.');
+      return await postGeneralPRComment(prUrl, commentBody);
+    }
+
+    if (!line || line <= 0) {
+      console.warn('Invalid line number. Posting as a general PR comment instead.');
+      return await postGeneralPRComment(prUrl, commentBody);
+    }
+
+    // Fetch the diff to get the diff_hunk
+    const diffHunk = await getDiffHunk(owner, repo, pullNumber, filePath, line);
+    if (!diffHunk) {
+      console.warn('Unable to fetch diff hunk. Posting as a general PR comment instead.');
+      return await postGeneralPRComment(prUrl, commentBody);
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -220,7 +287,8 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
         commit_id: commitId,
         path: filePath,
         line: line,
-        side: 'RIGHT'  // Comment on the new version of the file
+        side: 'RIGHT',
+        diff_hunk: diffHunk
       }),
     });
 
@@ -228,17 +296,6 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
       const errorText = await response.text();
       console.error(`GitHub API Error (${response.status}): ${response.statusText}`);
       console.error(`Error details: ${errorText}`);
-      console.error(`Request details:
-        URL: ${apiUrl}
-        Method: POST
-        Headers: ${JSON.stringify(response.headers)}
-        Body: ${JSON.stringify({
-          body: commentBody,
-          commit_id: commitId,
-          path: filePath,
-          line: line,
-          side: 'RIGHT'
-        }, null, 2)}`);
       throw new Error(`Failed to post inline comment: ${response.statusText}\n${errorText}`);
     }
 
@@ -246,8 +303,80 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
   } catch (error) {
     console.error(`Error in postInlineComment: ${error.message}`);
     console.error(`Stack trace: ${error.stack}`);
-    throw error; // Re-throw the error for the calling function to handle
+    throw error;
   }
+}
+
+async function getDiffHunk(owner, repo, pullNumber, filePath, line) {
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/files`;
+  const response = await fetch(apiUrl, {
+    headers: {
+      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+  });
+
+  if (!response.ok) {
+    console.error(`Failed to fetch PR files: ${response.statusText}`);
+    return null;
+  }
+
+  const files = await response.json();
+  const file = files.find(f => f.filename === filePath);
+  if (!file) {
+    console.error(`File ${filePath} not found in PR`);
+    return null;
+  }
+
+  const patch = file.patch;
+  if (!patch) {
+    console.error(`No patch found for file ${filePath}`);
+    return null;
+  }
+
+  const lines = patch.split('\n');
+  let currentLine = 0;
+  let hunkStart = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('@@')) {
+      const match = lines[i].match(/@@ -\d+,\d+ \+(\d+),/);
+      if (match) {
+        currentLine = parseInt(match[1], 10);
+        hunkStart = i;
+      }
+    } else if (!lines[i].startsWith('-')) {
+      if (currentLine === line) {
+        return lines.slice(Math.max(0, hunkStart - 1), i + 4).join('\n');
+      }
+      currentLine++;
+    }
+  }
+
+  console.error(`Line ${line} not found in patch for ${filePath}`);
+  return null;
+}
+
+async function postGeneralPRComment(prUrl, commentBody) {
+  const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+  const [, owner, repo, pullNumber] = match;
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${pullNumber}/comments`;
+  
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+    body: JSON.stringify({ body: commentBody }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Failed to post general PR comment: ${response.statusText}\n${errorText}`);
+    throw new Error(`Failed to post general PR comment: ${response.statusText}\n${errorText}`);
+  }
+
+  console.log('General PR comment posted successfully.');
 }
 
 function parseReviewResult(reviewResult) {
@@ -330,10 +459,19 @@ async function getLatestCommitId(prUrl) {
     const patchData = await getPullRequestPatch(prUrl);
     const reviewResult = await reviewPullRequest(patchData);
     const latestCommitId = await getLatestCommitId(prUrl);
-    console.log(`Last commit: ${latestCommitId}`);
-    await postInlineComments(prUrl, reviewResult, latestCommitId);
-    console.log('All inline review comments posted successfully.');
-  } catch (error) {
+    const issues = parseReviewResult(reviewResult);
+    
+    for (const issue of issues) {
+      const commentBody = `## Code Review Issue: ${issue.category} (${issue.severity})\n\n${issue.content}`;
+      try {
+        await postInlineComment(prUrl, commentBody, latestCommitId, issue.filePath, issue.lineNumber);
+      } catch (error) {
+        console.error(`Failed to post comment for issue in ${issue.filePath}:${issue.lineNumber}. Posting as general comment instead.`);
+        await postGeneralPRComment(prUrl, commentBody);
+      }
+    }
+    
+    console.log('All review comments posted successfully.');  } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
   }
