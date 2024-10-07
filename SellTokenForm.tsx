@@ -24,7 +24,6 @@ interface SellFormData {
 }
 
 const defaultSellToken = 'KEI finance';
-const hello = '';
 
 const disabledAssets = {
   CARD: true,
