@@ -42,66 +42,100 @@ async function getPullRequestPatch(prUrl) {
   return patchData;
 }
 
-// Function to send the PR patch data to Gemini for review
-// async function reviewPullRequest(patchData) {
-//   const apiKey = process.env.GEMINI_API_KEY;
+const CODE_REVIEW_PROMPT = `You are a senior developer tasked with conducting an in-depth code review of a provided code patch. Your review will methodically identify and categorize a range of issues including potential bugs, performance bottlenecks, security vulnerabilities, adherence to coding standards, and best practices in software design.
 
-//   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`, {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json' },
-//     body: JSON.stringify({
-//       prompt: `Review this code:\n\n${patchData}`,
-//     }),
-//   });
-//   console.log("Gemini API Response status:", res.status);
+## Focus Areas for Review:
 
-//   const result = await res.json();
-//   console.log("Gemini API Response:", result);
-//   return result.choices[0].text;  // Get the AI's review from the response
-// }
+1. **Bugs and Logic Errors:**
+   - Identify logical or syntactical errors leading to incorrect program behavior or crashes.
+   - Look for off-by-one errors, null pointer exceptions, and race conditions.
+   - Check for proper error handling and exception management.
 
-// Add the CODE_REVIEW_PROMPT constant at the top of your script
-const CODE_REVIEW_PROMPT = `You are a senior developer tasked with conducting an in-depth code review of a provided code patch. 
-Your review will methodically identify and categorize a range of issues including potential bugs, 
-performance bottlenecks, security vulnerabilities, adherence to coding standards, and best practices in software design.
+2. **Performance:**
+   - Suggest improvements for more efficient resource utilization, such as optimizing memory usage and processing efficiency.
+   - Identify potential bottlenecks, unnecessary computations, or inefficient algorithms.
+   - Look for opportunities to implement caching or memoization where appropriate.
 
-Focus Areas for Review:
+3. **Security:**
+   - Highlight potential vulnerabilities that could risk system security or data integrity.
+   - Check for proper input validation and sanitization to prevent injection attacks.
+   - Identify any hard-coded credentials or sensitive information.
+   - Assess the use of cryptographic functions and libraries for potential weaknesses.
 
-- Bugs: Identify logical or syntactical errors leading to incorrect program behavior or crashes.
-- Performance: Suggest improvements for more efficient resource utilization, such as optimizing memory usage and processing efficiency.
-- Security: Highlight potential vulnerabilities that could risk system security or data integrity.
-- Style/Coding Standards: Evaluate the code's adherence to established coding standards for readability and maintainability.
-- Best Practices in Software Design: Assess how well the code follows principles like SOLID, design patterns, 
-and other industry best practices for robust software development.
-- Test Coverage: Examine the test coverage with a focus on Statement and Branch coverage techniques. 
-Ensure that all significant code paths and decision branches are adequately tested for thorough validation of the code's functionality.
+4. **Style/Coding Standards:**
+   - Evaluate the code's adherence to established coding standards for readability and maintainability.
+   - Check for consistent naming conventions, proper indentation, and appropriate comments.
+   - Identify any code duplication or overly complex methods that could be refactored.
 
-Review Output Format:
+5. **Best Practices in Software Design:**
+   - Assess how well the code follows principles like SOLID, design patterns, and other industry best practices for robust software development.
+   - Evaluate the overall architecture and suggest improvements for modularity and extensibility.
+   - Look for proper separation of concerns and abstraction levels.
+
+6. **Test Coverage:**
+   - Examine the test coverage with a focus on Statement and Branch coverage techniques.
+   - Ensure that all significant code paths and decision branches are adequately tested for thorough validation of the code's functionality.
+   - Identify any missing edge cases or boundary conditions in the tests.
+
+7. **Scalability:**
+   - Assess how well the code would perform under increased load or with larger datasets.
+   - Identify potential bottlenecks in data structures or algorithms that might not scale well.
+
+8. **Concurrency and Threading:**
+   - Look for proper use of synchronization mechanisms in multi-threaded code.
+   - Identify potential deadlocks, race conditions, or thread safety issues.
+
+9. **Documentation:**
+   - Evaluate the quality and completeness of inline comments and method/class documentation.
+   - Suggest improvements for clarity and comprehensiveness in documentation.
+
+10. **Dependency Management:**
+    - Assess the use of external libraries and dependencies.
+    - Look for outdated or vulnerable dependencies that should be updated.
+
+11. **Code Complexity:**
+    - Identify overly complex methods or classes that could benefit from simplification.
+    - Suggest breaking down complex logic into smaller, more manageable units.
+
+## Review Output Format:
 
 Provide your findings in a markdown format. Structure each identified issue as a separate section, using the following format:
 
 ---
-**Category**: [Bugs | Performance | Security | Style/Coding Standards | Best Practices | Test Coverage]
+**Category**: [Bugs | Performance | Security | Style/Coding Standards | Best Practices | Test Coverage | Scalability | Concurrency | Documentation | Dependency Management | Code Complexity]
+
+**Severity**: [Critical | High | Medium | Low]
+
 **Description:** Provide a detailed description of the issue.
+
 **Code Snippet:**
-  \`\`\`<language>
-  <Include the problematic code snippet from the patch, ensuring to escape any special characters.>
-  \`\`\`
+\`\`\`<language>
+<Include the problematic code snippet from the patch, ensuring to escape any special characters.>
+\`\`\`
+
 **Suggested Code:** 
-  \`\`\`<language>
-  <Code suggestion to fix the issue, if applicable. Leave empty if there is no specific code suggestion.>
-  \`\`\`
+\`\`\`<language>
+<Code suggestion to fix the issue, if applicable. Leave empty if there is no specific code suggestion.>
+\`\`\`
+
+**Rationale:** Explain the reasoning behind your suggestion and its potential impact.
+
 ---
 
-Additional Instructions:
+## Additional Instructions:
 
 - Maintain clear separation and readability for each issue.
 - Place a strong emphasis on coding best practices and standards in your suggestions.
-- Offer constructive feedback aimed at enhancing code quality, focusing on clean, efficient, secure, 
-and maintainable coding techniques.
-- In the whitebox test coverage assessment, focus specifically on Statement and Branch coverage 
-to ensure comprehensive testing of all executable statements and decision points in the code.`;
+- Offer constructive feedback aimed at enhancing code quality, focusing on clean, efficient, secure, and maintainable coding techniques.
+- In the whitebox test coverage assessment, focus specifically on Statement and Branch coverage to ensure comprehensive testing of all executable statements and decision points in the code.
+- Consider the broader context of the codebase and how the changes might affect other parts of the system.
+- Prioritize issues based on their potential impact on the system's functionality, performance, and security.
+- Suggest alternative approaches or design patterns where appropriate, explaining their benefits.
+- When reviewing performance issues, consider both time and space complexity.
+- For security-related issues, reference relevant OWASP guidelines or CWE identifiers when applicable.
+- Provide specific examples or scenarios to illustrate potential problems or benefits of suggested changes.`;
 
+/*
 // Update the reviewPullRequest function
 async function reviewPullRequest(patchData) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -174,13 +208,94 @@ async function postReviewComment(prUrl, reviewResult) {
 
   console.log('Review comment posted successfully.');
 }
+*/
+
+async function reviewPullRequest(patchData) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = "models/gemini-1.5-pro-latest";
+  const version = "v1beta";
+  const url = `https://generativelanguage.googleapis.com/${version}/${model}:generateContent?key=${apiKey}`;
+  const prompt = `${CODE_REVIEW_PROMPT}\n\n---${patchData}---`;
+  const contents = [{
+    parts: [{ text: prompt }],
+    role: "user"
+  }];
+  const payload = {
+    contents
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  console.log("Gemini API Response status:", res.status);
+  const result = await res.json();
+  console.log("Gemini API Response:", result);
+  if (result.error) {
+    throw new Error(`Gemini API Error: ${result.error.message}`);
+  }
+  const candidates = result.candidates;
+  if (!candidates || !candidates.length || !candidates[0].content?.parts) {
+    throw new Error("Error: No valid response received from Gemini.");
+  }
+  const textResponse = candidates[0].content.parts.find(part => part.hasOwnProperty('text'));
+  if (!textResponse) {
+    throw new Error("Error: No text response found in Gemini output.");
+  }
+  return textResponse.text;
+}
+
+async function postReviewComment(prUrl, commentBody) {
+  const match = prUrl.match(/https:\/\/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/);
+  const owner = match[1];
+  const repo = match[2];
+  const pullNumber = match[3];
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${pullNumber}/comments`;
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+    body: JSON.stringify({
+      body: commentBody,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to post review comment: ${response.statusText}`);
+  }
+  console.log('Review comment posted successfully.');
+}
+
+function parseReviewResult(reviewResult) {
+  const issues = reviewResult.split('---').filter(issue => issue.trim() !== '');
+  return issues.map(issue => {
+    const lines = issue.trim().split('\n');
+    const category = lines.find(line => line.startsWith('**Category**:'))?.split(':')[1]?.trim() || 'Unknown';
+    const severity = lines.find(line => line.startsWith('**Severity**:'))?.split(':')[1]?.trim() || 'Unknown';
+    return {
+      category,
+      severity,
+      content: issue.trim()
+    };
+  });
+}
+
+async function postSeparateComments(prUrl, reviewResult) {
+  const issues = parseReviewResult(reviewResult);
+  for (const issue of issues) {
+    const commentBody = `## Code Review Issue: ${issue.category} (${issue.severity})\n\n${issue.content}`;
+    await postReviewComment(prUrl, commentBody);
+  }
+}
 
 // Main function to orchestrate the PR review
 (async () => {
   try {
     const patchData = await getPullRequestPatch(prUrl);
     const reviewResult = await reviewPullRequest(patchData);
-    await postReviewComment(prUrl, reviewResult);
+    await postSeparateComments(prUrl, reviewResult);
+    console.log('All review comments posted successfully.');
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
