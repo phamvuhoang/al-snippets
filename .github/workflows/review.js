@@ -249,17 +249,34 @@ async function postInlineComment(prUrl, commentBody, commitId, filePath, line) {
     throw error; // Re-throw the error for the calling function to handle
   }
 }
+
 function parseReviewResult(reviewResult) {
+  console.log('Parsing review result...');
   const issues = reviewResult.split('---').filter(issue => issue.trim() !== '');
-  return issues
-    .map(issue => {
+  console.log(`Found ${issues.length} potential issues.`);
+
+  const parsedIssues = issues
+    .map((issue, index) => {
+      console.log(`Parsing issue ${index + 1}...`);
       const lines = issue.trim().split('\n');
       const category = lines.find(line => line.startsWith('**Category**:'))?.split(':')[1]?.trim() || 'Unknown';
       const severity = lines.find(line => line.startsWith('**Severity**:'))?.split(':')[1]?.trim() || 'Unknown';
-      const codeSnippet = issue.match(/```[\s\S]*?```/)?.[0] || '';
-      const filePath = codeSnippet.match(/File: (.+)/)?.[1] || '';
-      const lineNumber = parseInt(codeSnippet.match(/Line: (\d+)/)?.[1] || '0', 10);
       
+      const codeSnippetMatch = issue.match(/```[\s\S]*?```/);
+      let filePath = '';
+      let lineNumber = 0;
+      
+      if (codeSnippetMatch) {
+        const codeSnippet = codeSnippetMatch[0];
+        const filePathMatch = codeSnippet.match(/File: (.+)/);
+        const lineNumberMatch = codeSnippet.match(/Line: (\d+)/);
+        
+        if (filePathMatch) filePath = filePathMatch[1].trim();
+        if (lineNumberMatch) lineNumber = parseInt(lineNumberMatch[1], 10);
+      }
+
+      console.log(`Issue ${index + 1}: Category: ${category}, Severity: ${severity}, File: ${filePath}, Line: ${lineNumber}`);
+
       return {
         category,
         severity,
@@ -268,7 +285,10 @@ function parseReviewResult(reviewResult) {
         lineNumber
       };
     })
-    .filter(issue => (issue.category !== 'Unknown' || issue.severity !== 'Unknown') && issue.filePath && issue.lineNumber);
+    .filter(issue => issue.category !== 'Unknown' || issue.severity !== 'Unknown');
+
+  console.log(`Parsed ${parsedIssues.length} valid issues.`);
+  return parsedIssues;
 }
 
 async function postInlineComments(prUrl, reviewResult, commitId) {
