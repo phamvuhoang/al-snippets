@@ -37,7 +37,7 @@ async function getPullRequestPatch(prUrl) {
   }
 
   const patchData = await response.text();
-  console.log("Patch Data:", patchData);
+  // console.log("Patch Data:", patchData);
   
   return patchData;
 }
@@ -155,7 +155,7 @@ async function reviewPullRequest(patchData) {
   });
   console.log("Gemini API Response status:", res.status);
   const result = await res.json();
-  console.log("Gemini API Response:", result);
+  // console.log("Gemini API Response:", result);
   if (result.error) {
     throw new Error(`Gemini API Error: ${result.error.message}`);
   }
@@ -275,6 +275,7 @@ async function postInlineComments(prUrl, reviewResult, commitId) {
   const issues = parseReviewResult(reviewResult);
   for (const issue of issues) {
     const commentBody = `## Code Review Issue: ${issue.category} (${issue.severity})\n\n${issue.content}`;
+    console.log(`Posting inline comment: ${commentBody}`);
     await postInlineComment(prUrl, commentBody, commitId, issue.filePath, issue.lineNumber);
   }
 }
