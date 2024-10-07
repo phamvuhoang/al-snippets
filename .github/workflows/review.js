@@ -269,16 +269,18 @@ async function postReviewComment(prUrl, commentBody) {
 
 function parseReviewResult(reviewResult) {
   const issues = reviewResult.split('---').filter(issue => issue.trim() !== '');
-  return issues.map(issue => {
-    const lines = issue.trim().split('\n');
-    const category = lines.find(line => line.startsWith('**Category**:'))?.split(':')[1]?.trim() || 'Unknown';
-    const severity = lines.find(line => line.startsWith('**Severity**:'))?.split(':')[1]?.trim() || 'Unknown';
-    return {
-      category,
-      severity,
-      content: issue.trim()
-    };
-  });
+  return issues
+    .map(issue => {
+      const lines = issue.trim().split('\n');
+      const category = lines.find(line => line.startsWith('**Category**:'))?.split(':')[1]?.trim() || 'Unknown';
+      const severity = lines.find(line => line.startsWith('**Severity**:'))?.split(':')[1]?.trim() || 'Unknown';
+      return {
+        category,
+        severity,
+        content: issue.trim()
+      };
+    })
+    .filter(issue => issue.category !== 'Unknown' || issue.severity !== 'Unknown');
 }
 
 async function postSeparateComments(prUrl, reviewResult) {
